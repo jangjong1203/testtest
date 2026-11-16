@@ -1,11 +1,8 @@
 .gradle/
-.gradle-dist/
 build/
-out/
 .idea/
 *.iml
-.DS_Store
+uploads/
+upload-files/
 .env
-.env.*
-!.env.example
-*.log
+.DS_Store

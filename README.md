@@ -1,113 +1,87 @@
- # Week 09 - Spring Data JPA 기초 (Book REST CRUD)
+# Week 11 — Attachment Board (Student Sample)
 
- **목표:** 7주차에 배운 SQL/MariaDB와 5주차 REST CRUD를 연결합니다. 
- `@Entity`, `JpaRepository`, MariaDB 연동과 기본 REST CRUD를 경험합니다.
+Spring Boot + Thymeleaf + JPA + MariaDB: 게시글 CRUD / 다중 첨부파일 업로드 / 다운로드
+
+## 실행하기
+1. Java 17+ 및 MariaDB 준비, `CREATE DATABASE web11 CHARACTER SET utf8mb4;`
+2. 환경변수 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 자신의 MariaDB에 맞게 설정. 기본값은 `jdbc:mariadb://localhost:3306/web11`, `webuser`, `webpass`.
+3. Gradle이 설치된 환경: `gradle bootRun` / IntelliJ: `AttachmentBoardApplication.main()` 실행.
+4. 접속: http://localhost:8080/posts
 
 
-> 수업용 샘플입니다. 실제 DB 접속 정보와 비밀번호는 프로젝트 파일에 기록하지 마세요. 
-> **Spring Boot 3.5.6 / Java 17 이상 / Gradle 8.14.3 / MariaDB**
+① Source Code Analysis
 
-## 준비
+Sample Project의 소스코드를 읽고 다음 8개 질문에 대한 답을 README.md에 자신의 말로 작성합니다.
 
-1. DBeaver에서 자신의 MariaDB에 접속되는지 확인합니다.
-2. IntelliJ에서 프로젝트 폴더를 `Open`하여 Gradle 프로젝트로 불러옵니다.
-3. Run > Edit Configurations > 애플리케이션 실행 구성 > Environment variables에 아래 **세 변수**를 등록합니다.
+Project Structure & Spring MVC
 
-| 이름 | 값의 형식(예시이며 실제 비밀번호 아님) |
-|---|---|
-| `DB_URL` | `jdbc:mariadb://YOUR_HOST:3306/YOUR_DATABASE` |
-| `DB_USERNAME` | `YOUR_USERNAME` |
-| `DB_PASSWORD` | 개인별 발급 비밀번호 |
+    PostController, PostService, PostRepository는 각각 어떤 역할을 하며, 서로 어떻게 연결되는가?
+    controller는 http의 요청을 받고 응답을 보냅니다. service는 트랜잭션단위로 비즈니스 로직을 수행하고 파일을 저장을 관리합니다.
+    repository는 JPA를 통해서 데이터베이스의 CRUD 작업을 실행합니다.
+    controller->service->repository 순서로 연결되어있습니다.
 
-> `application.properties`는 로컬과 Render에서 **같은 파일**을 사용합니다. 로컬 값은 IntelliJ 환경변수에, Render 값은 Render 서비스의 Environment에 입력합니다. `PORT`는 Render에서 자동 설정되며 로컬은 기본 8080입니다.
+    게시글 작성 시 HTML Form의 입력값과 첨부파일은 Controller에 어떻게 전달되는가?
+    form의 입력값은 enctype 이 설정되어있어 제출 버튼을 누르면 텍스트 입력값들과 첨부파일들이 HTTP POST 요청에 담겨 /posts로 보내집니다.
+    controller에서 텍스트는 @Valid,@ModelAttribute를 통해 postForm객체에 맞는 형식인지 검사합니다.
+    파일은 @RequestParam을 통해 List<MultipartFile>에 저장됩니다.
 
-## 명령행 실행
+JPA & Entity Relationship
+    
+    Post와 Attachment Entity는 어떤 관계이며, @ManyToOne과 @OneToMany는 각각 어떤 역할을 하는가?
+    Post의 게시글 한개에 Attachment의 첨부파일이 여러개가 들어있는 다대일 관계입니다.    
+    @ManyToOne는 Attachment에서 여러 첨부파일들이 post에 있는 특정 게시글에 포함되어있다고 알려주는 역할을 합니다.
+    @OneToMany는 post에서 게시글을 호출하면 해당 게시글에 속해있는 첨부파일들을 불러오는 역할을 합니다.
 
-macOS / Linux:
-```bash
-./gradlew bootRun
-```
+    cascade = CascadeType.ALL과 orphanRemoval = true는 어떤 역할을 하며, 실제 디스크에 저장된 파일에도 영향을 주는가?
+    cascade = CascadeType.ALL는 게시글을 저장하거나 삭제할때 자동적으로 안에 들어있는 첨부파일들도 저장하거나 제거해주는 역할을 합니다.
+    orphanRemoval = true는 게시글에서 특정 첨부파일만 제거 하고싶을때 연결만 끊어줘도 자동적으로 삭제까지 시켜주는 역할을 합니다.
+    실제 파일에는 영향을 주지않고 DB에서만 관리가 이루어집니다.
 
-Windows:
-```bat
-gradlew.bat bootRun
-```
+File Upload
 
-프로젝트의 `gradlew`/`gradlew.bat`는 샘플용 **Gradle 부트스트랩 스크립트**입니다. 시스템에 Gradle이 없으면 처음 실행 시 Gradle 8.14.3을 인터넷에서 다운로드합니다. 공식 Gradle Wrapper JAR 파일을 번들로 포함한 형태는 아닙니다. IntelliJ의 Gradle 작업 실행을 이용해도 됩니다. 실행 시 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`가 설정되어 있어야 합니다.
+    MultipartFile은 무엇이며, 업로드된 파일은 어떤 과정을 거쳐 서버에 저장되는가?
+    MultipartFile는 업로드된 파일들을 관리하는 도구로 실제로 저장된 파일이 아니라 http로 전달받은 받은 파일 입니다.
+    업로드된 파일은 컨트롤러 create에서 서비스로 넘어가고 서비스 store에서 적절한 파일인지 검사후 서버 폴더에 파일을 복사해서 저장합니다.
+    이후 파일정보들은 Attachment 객체를 만들어 서비스에서 데이터베이스에 저장합니다.
+    
+    파일을 원본 이름 대신 UUID 기반 파일명으로 저장하는 이유는 무엇인가?
+    똑같은 이름을 가진 파일이 올라왔을때 생기는 오류나 기타 오류(덮어쓰기나 이상한 이름으로 해킹 등)를 막기위해 UUID를사용합니다.
 
-## Render 배포
+File Download & Security
+    
+    파일 다운로드 시 Resource, ResponseEntity, Content-Disposition은 각각 어떤 역할을 하는가?
+    Resource는 서버폴더에서 꺼내온 원본 파일을 가져오는 역할을 합니다.
+    Content-Disposition는 원래 파일명의 이름으로 다운로드 창을 만드는 역할을 합니다.
+    ResponseEntity는 상태나 만들어진 창, 파일의 내용 들을 담아서 브라우저에 보내는 역할을 합니다.
 
-1. 코드를 GitHub Repository에 Push합니다. `.env` 또는 DB 비밀번호를 커밋하지 않습니다.
-2. Render에서 **Web Service**를 생성하고 GitHub Repository를 연결합니다.
-3. Runtime을 Docker로 설정합니다(`Dockerfile` 사용).
-4. Render > Service > **Environment**에서 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 입력합니다. 실제 값을 README에 적지 않습니다.
-5. 배포 완료 후 `https://YOUR-SERVICE.onrender.com/api/books`에 접속해 응답을 확인합니다.
-6. Render에서 API로 데이터를 추가하고, DBeaver에서 개인 DB에 저장된 내용을 확인합니다.
+    파일 저장 과정에서은 normalize()와 startsWith()를 사용하는 이유는 무엇인가?
+    파일이름에 ../../ 와 같은 기호를 넣어 기존 폴더가 아니라 다른 상위 폴더로 이동해서 
+    저장해야하는 폴더가 아닌 다른 폴더를 건드리는걸 막기 위해서입니다.
 
-**중요:** 수업용 MariaDB 서버가 외부 인터넷(Render)에서 접근 가능한 주소/포트를 제공하고, 방화벽/접속 허용 설정이 충족되어야 Render 연동이 됩니다. DB 서버가 교내망 또는 VPN에서만 접근 가능하면 Render는 접속할 수 없습니다. DB 계정에는 본인 DB에 필요한 최소 권한만 부여하세요.
 
-## 보안 및 DB 주의
+STEP 3. Customizing
 
-- Git에 커밋하는 `application.properties`에는 **환경변수 참조만** 있습니다.
-- `spring.jpa.hibernate.ddl-auto=update`는 **수업 실습용**입니다. 운영 서비스에서는 스키마 마이그레이션과 권한 정책을 별도로 관리해야 합니다.
-- 같은 DB를 9주차와 10주차에 사용한다면 10주차를 시작하기 전에 기존 `books` 테이블을 백업하세요.
-- 개인별 DB에 기존에 만든 SQL 실습 테이블(`product` 등)이 있더라도 `books` 테이블과 이름이 다르면 영향을 주지 않습니다.
+Text: 
 
-## 실행 테스트
+    list.html, form.html 수정
 
-```bash
-./gradlew test
-```
+    
+Style:
 
-테스트는 **H2 인메모리 DB**를 사용하므로 개인 MariaDB 계정 없이 실행할 수 있습니다. 다만 수업 과제의 MariaDB 접속과 Render 배포는 별도로 직접 검증해야 합니다.
+    app.css수정
 
- ## 예제 구조
 
- ```text
- src/main/java/com/webservice/sample/
- ├── BookApplication.java
- ├── entity/Book.java
- ├── repository/BookRepository.java
- ├── service/BookService.java
- ├── controller/BookController.java
- └── dto/BookRequest.java, BookResponse.java
- ```
 
- ## API
+UI/Data:
+    
+    detail.html수정
 
- | Method | URL | 설명 |
- |---|---|---|
- | POST | `/api/books` | 도서 등록 (`201 Created`) |
- | GET | `/api/books` | 전체 조회 |
- | GET | `/api/books/{id}` | 단건 조회 (`404` 처리) |
- | PUT | `/api/books/{id}` | 수정 (`repository.save()` 방식) |
- | DELETE | `/api/books/{id}` | 삭제 (`204 No Content`) |
 
- ```bash
- curl -X POST http://localhost:8080/api/books \
-   -H 'Content-Type: application/json' \
-   -d '{"title":"Spring Boot Basics","author":"Kim","price":30000,"category":"Programming"}'
+## 코드 위치
+- `PostController`: 게시글 화면 / Form
+- `AttachmentController`: 다운로드 + 미리보기 TODO
+- `PostService`: JPA CRUD와 파일 저장 연결
+- `FileStorageService`: 파일 검증 / UUID 저장 / 로드
+- `Post`, `Attachment`: 1:N 관계
+- `templates/posts/detail.html`: 미리보기 TODO
 
- curl http://localhost:8080/api/books
- curl http://localhost:8080/api/books/1
-
- curl -X PUT http://localhost:8080/api/books/1 \
-   -H 'Content-Type: application/json' \
-   -d '{"title":"Spring Data JPA","author":"Kim","price":35000,"category":"Programming"}'
-
- curl -i -X DELETE http://localhost:8080/api/books/1
- ```
-
- > 위 `1`은 예시 ID입니다. POST로 받은 **실제 ID**를 사용하세요. API 입력은 `id` 외 4개 필드이며, 학생 과제에서는 본인 주제로 `id` 외 **5개 이상 필드**가 필요합니다.
-
- ## SQL 연습 / DB 확인
-
- `sql/01_sql_practice.sql` 파일을 DBeaver에서 열어 SQL **CREATE/INSERT/UPDATE/DELETE/SELECT**를 연습하세요. 
- `movie_sql` 테이블은 SQL 직접 실습용이고, `books`는 JPA가 생성/관리하는 테이블입니다. 서로 다른 이름을 사용합니다. 
- `sql/02_existing_table_example.sql`을 참고하여 **기존 수업 테이블에 데이터 추가**도 별도로 진행하세요.
-
- ```sql
- SELECT * FROM books;
- ```
-
- 응답과 실제 DB 데이터를 비교하고 콘솔의 Hibernate INSERT/SELECT/UPDATE/DELETE를 확인합니다.
