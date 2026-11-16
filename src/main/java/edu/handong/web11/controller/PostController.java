@@ -36,15 +36,12 @@ public class PostController {
         model.addAttribute("postForm", new PostForm());
         return "posts/form";
     }
-    //작성한 게시글의 데이터를 검사후 첨부파일 목록을 받음
+
     @PostMapping("/posts")
     public String create(@Valid @ModelAttribute("postForm") PostForm form, BindingResult errors,
                          @RequestParam(name = "files", required = false) List<MultipartFile> files) {
-        //제목이나 내용이 비어있거나 오류가 발생해 검사에 통과하지 못하면 다시 작성으로돌아감
         if (errors.hasErrors()) return "posts/form";
-        //파일리스트를 넘기는데 파일이 비어있으면 빈 파일리스트를 넘겨 저장 후 만들어진 게시글 id를 받아옴
         Long id = posts.create(form, files == null ? List.of() : files);
-        //만들어진 게시글로 이동함
         return "redirect:/posts/" + id;
     }
 

@@ -27,27 +27,20 @@ public class FileStorageService {
         uploadDir = Path.of(path).toAbsolutePath().normalize();
         Files.createDirectories(uploadDir);
     }
-    //파일을 받아옴
+
     public Attachment store(MultipartFile file) {
-        //비어있는 파일인지 검사
         if (file.isEmpty()) throw new IllegalArgumentException("빈 파일은 업로드할 수 없습니다.");
-        //해킹용 이상한 문자나 너무긴이름을 가진 파일이면 에러발생시킴
         String original = file.getOriginalFilename();
         if (original == null || original.isBlank() || original.contains("/") || original.contains("\\") || original.contains(".."))
             throw new IllegalArgumentException("잘못된 파일 이름입니다.");
         if (original.length() > 240) throw new IllegalArgumentException("파일 이름이 너무 깁니다.");
-        //파일 이름 끝에서 . 뒷 부분을 읽어 파일의 형식을 파악후 허용된 파일 형식인지 검사함
         int dot = original.lastIndexOf('.');
         String ext = dot < 0 ? "" : original.substring(dot + 1).toLowerCase(Locale.ROOT);
         if (!ALLOWED.contains(ext)) throw new IllegalArgumentException("허용 형식: jpg, jpeg, png, gif, pdf, txt");
-        //파일이 크기도 검사
         if (file.getSize() > 10L * 1024 * 1024) throw new IllegalArgumentException("파일은 10MB 이하만 가능합니다.");
-        //파일 이름이 겹치지않도록 UUID로 저장용 파일명 생성
         String stored = UUID.randomUUID() + "." + ext;
-        //업로드된 경로와 저장한 파일명을 합쳐서 경로로 정리하고 실제 저장위치가 업로드된 경로 인지를 검사.
         Path target = uploadDir.resolve(stored).normalize();
         if (!target.startsWith(uploadDir)) throw new IllegalArgumentException("잘못된 파일 경로입니다.");
-        //업로드한 파일을 열어서 파일의 데이터를 복사해서 저장
         try (InputStream input = file.getInputStream()) {
             Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
             // Teaching sample: MIME type is inferred by extension, not trusted from request headers.
@@ -58,10 +51,8 @@ public class FileStorageService {
                 case "pdf" -> "application/pdf";
                 default -> "text/plain";
             };
-            //원본 파일명, 저장 파일명, 파일의 형식, 파일크기를 담아 객체로반환
             return new Attachment(original, stored, contentType, file.getSize());
         } catch (IOException e) {
-            //저장중 에러시 해당 파일을 삭제후 오류 발생
             try { Files.deleteIfExists(target); } catch (IOException ignored) {}
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "파일 저장 실패", e);
         }
